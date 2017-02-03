@@ -30,14 +30,8 @@ def valid_password(password):
     if password and PASS_RE.match(password):
         return password
 
-def valid_verify(password, verify):
-    if password and verify:
-        if password == verify:
-            return password
-
 def valid_email(email):
-    if email and MAIL_RE.match(email):
-        return email
+    return not email or MAIL_RE.match(email)
 
 page_header = """
 <!DOCTYPE html>
@@ -111,14 +105,17 @@ class MainHandler(webapp2.RequestHandler):
         self.write_form()
 
     def post(self):
+        error = False
         username = cgi.escape(self.request.get("username"), quote=True)
         password = cgi.escape(self.request.get("password"), quote=True)
         verify = cgi.escape(self.request.get("verify"), quote=True)
         email = cgi.escape(self.request.get("email"), quote=True)
 
+        params = dict(username = username,
+                        email = email)
+
         valid_name = valid_username(username)
         valid_pass = valid_password(password)
-        verified = valid_verify(password, verify)
         valid_address = valid_email(email)
 
         name_error = "Username not valid!"
@@ -129,17 +126,22 @@ class MainHandler(webapp2.RequestHandler):
 
 
         if not valid_name:
-            self.write_form(name_error, "", "", "",
-                username, email)
-        elif not valid_pass:
-            self.write_form("", password_error, "", "",
-                username, email)
-        elif not verified:
-            self.write_form("", "", verify_error, "",
-                username, email)
-        elif not valid_address:
-            self.write_form("", "", "", email_error,
-                username, email)
+            params["name_error"] = name_error
+            error = True
+
+        if not valid_pass:
+            params["password_error"] = password_error
+            error = True
+        elif valid_pass != verify:
+            params["verify_error"] = verify_error
+            error = True
+
+        if not valid_address:
+            params['email_error'] = email_error
+            error = True
+
+        if error:
+            self.write_form(**params)
         else:
             self.redirect("/welcome?username=" + username)
 
